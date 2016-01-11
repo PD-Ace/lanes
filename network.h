@@ -38,8 +38,8 @@
 //In bytes  this should amunt to 60MB, ideal 50ms of "line rate output buffer" on 10G
 //buffer bloat is possible at this time,further testing and ethtool integration
 //needs to be done.
-//#define BUFSIZE 62914560  
-#define BUFSIZE   1000000
+#define BUFSIZE 62914560  
+//#define BUFSIZE   1000000
 #define LBDELAY 5000000
 #define RINGS_MAX 4096
 
@@ -53,6 +53,8 @@ int init_af_packet (char *ifname, struct sockaddr_ll *sll);
 uint32_t host_to_ip (char *host);
 void fill_headers (struct peer_context *pcx, struct headers *hdr, int fd);
 void trace_dump (char *msg, RNG * r);
+int tun_set_queue(int fd, int enable);
+void set_fanout(int fanout_id,int af);
 
 /*** arp_request() returns 0 on success, -1 on failure.
  * ifindex - interface index from ioctl call using get_interface()
