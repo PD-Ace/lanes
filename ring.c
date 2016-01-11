@@ -111,7 +111,6 @@ inline RNG *pop ( Q * q )
 	    q->out = 0;
 	++q->out;
     }
-    q->sz--;
     __sync_val_compare_and_swap ( &q->lock, 1, 0 );
     return &q->R[q->out++];
 }

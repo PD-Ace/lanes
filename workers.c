@@ -154,15 +154,17 @@ void *tx ( void *a )
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;
+		        h->q[i].sz--;
+
 		}
 	    } else {
-		debug ( 5, "TX {%i Popping %i}\n", i, data->index );
+		debug ( 5, "TX {%i Popping no data %i}\n", i, data->index );
 
 	    }
 	    debug ( 5, "TX {%i Pop releasing %i}\n", i, data->index );
 	    data->len = -1;
-
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
+	    
 	} else {
 
 	    debug ( 5, "TX {Entering size wait - Got Null %i}\n", i );
@@ -220,11 +222,12 @@ void *rx_io ( void *a )
 	data = NULL;
 	debug ( 6, "RX Pushing %i\n", i );
 	data = push ( &h->q[i] );
-	for ( j = 0; data == NULL && j < 3; j++ ) {
-	    for ( i; data == NULL && i < h->qnum; i++ ) {
-		if ( h->q[i].sz < h->q[i].rsz )
+	for ( j = 0; data == NULL; j++ ) {
+	    for ( i; i < h->qnum && data == NULL; ++i ) {
+		if ( h->q[i].sz < h->q[i].rsz ){
 		    data = push ( &h->q[i] );
-
+		debug ( 5, "%i try current queue: %i\n", j, i );
+		}
 	    }
 	    i = 0;
 	}
@@ -240,13 +243,14 @@ void *rx_io ( void *a )
 	    } else if ( data->ipheader->saddr != h->peer_ip ) {
 		data->len = -1;
 		__sync_val_compare_and_swap ( &data->lock, 1, 0 );
+		continue;
 		//debug ( 6, "RX %i Non-matching IP \n", i );
 	    } else {
 		data->len -= ETHIP4;
-		debug ( 6, "RX %i Got matching IP \n", i );
+		debug ( 6, "RX %i Got matching IP index %i \n", i,data->index );
 	    }
 
-	    debug ( 6, "RX %i Push releasing\n", i );
+	    debug ( 6, "RX %i Push releasing %i\n", i,data->index );
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
 	    h->q[i].sz++;
 
@@ -328,20 +332,22 @@ void *rx ( void *a )
 	    if ( data->len > 0 ) {
 		debug ( 6, "RX Popped %i has data %i got %i\n", i, data->index, data->len );
 		ret = write ( h->fd, data->ethernet_frame + ( ETH_HDRLEN + IP4_HDRLEN ), data->len );	//, 0, (struct sockaddr *) &h->sll, sizeof (h->sll));
-		if ( ret == -1 ) {
+		if ( ret < 1 ) {
 		    die ( 0, "Error in write() rx worker %s interface", h->tifname );
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;
 		    debug ( 6, "RX %i wrote %i\n", i, data->index );
+		        h->q[i].sz--;
+
 		}
-		data->len = -1;
+		//data->len = -1;
 	    } else {
 		debug ( 6, "RX %i got no data %i\n", i, data->index );
 	    }
 	    debug ( 6, "RX %i releasing %i\n", i, data->index );
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
-
+		data->len = -1;
 	} else {
 	    debug ( 6, "RX Entering size wait - Got Null %i\n", i );
 	    while ( !h->q[i].sz );
