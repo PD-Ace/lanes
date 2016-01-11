@@ -13,6 +13,7 @@ void *tx_io ( void *a )
 
     pfd.fd = h->fd;
     pfd.events = POLLIN;
+    tun_set_queue(h->fd,1); //attach to tap queue
 
     switch ( h->type ) {
       case TUN:
@@ -53,6 +54,7 @@ void *tx_io ( void *a )
 
 	if ( data != NULL ) {
 	    debug ( 5, "TX Pushed not Null %i\n", data->index );
+	    do{
 	    poll ( &pfd, 1, -1 );
 	    if ( pfd.revents & POLLIN )
 		data->len = read ( h->fd, data->data, h->mtu - hdr_sz );
@@ -67,9 +69,11 @@ void *tx_io ( void *a )
 		h->bytes_in += data->len;
 
 	    }
+	    }while(data->len==-1);
 	    debug ( 5, "TX Push releasing\n" );
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
 	    h->q[i].sz++;
+	    __sync_fetch_and_add(&h->q[i].in,1);
 
 	}
     }
@@ -108,7 +112,8 @@ void *tx ( void *a )
 
     i = __sync_fetch_and_add ( &h->id, 1 );
     h->q[i].id = i;
-
+    int af=h->af;
+   // set_fanout(0,af);
     switch ( h->type ) {
       case TUN:
 	  snprintf ( type, 30, "TUN" );
@@ -147,15 +152,13 @@ void *tx ( void *a )
 
 	    if ( data->len > 0 ) {
 		debug ( 5, "TX {%i Popping has data %i}\n", i, data->index );
-		ret = sendto ( h->af, data->ethernet_frame, data->len + ( ETH_HDRLEN + IP4_HDRLEN ), 0, ( struct sockaddr * ) &h->sll, sizeof ( h->sll ) );
+		ret = sendto ( af, data->ethernet_frame, data->len + ( ETH_HDRLEN + IP4_HDRLEN ), 0, ( struct sockaddr * ) &h->sll, sizeof ( h->sll ) );
 
 		if ( ret < 1 ) {
 		    die ( 0, "Error in sendto tx worker %s interface", h->ifname );
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;
-		        h->q[i].sz--;
-
 		}
 	    } else {
 		debug ( 5, "TX {%i Popping no data %i}\n", i, data->index );
@@ -180,7 +183,7 @@ void *rx_io ( void *a )
     struct rxq *h = ( struct rxq * ) a;
     struct pollfd pfd;
     socklen_t sklen = sizeof ( h->sll );
-    int bytes, i, j = 0;
+    int bytes, i, j = 0,nope=0;
     uint8_t dst[6];
     struct in_addr *p, *m, *src_ip, *dst_ip;
 
@@ -194,7 +197,8 @@ void *rx_io ( void *a )
 
     pfd.fd = h->af;
     pfd.events = POLLIN;
-
+    int af=h->af;
+   // set_fanout(0,af);
     switch ( h->type ) {
       case TUN:
 	  snprintf ( type, 30, "TUN" );
@@ -234,25 +238,33 @@ void *rx_io ( void *a )
 	debug ( 6, "RX Pushed %i\n", i );
 	if ( data != NULL ) {
 	    debug ( 6, "RX Pushed not null %i index %i\n", i, data->index );
+	    do{
 	    poll ( &pfd, 1, -1 );
 	    if ( pfd.revents & POLLIN )
-		data->len = read ( h->af, data->ethernet_frame, h->mtu, 0 );	//, NULL, 0);
+		data->len = read ( af, data->ethernet_frame, h->mtu, 0 );	//, NULL, 0);
 
 	    if ( data->len == -1 ) {
 		die ( 0, "Error in rx_io interface %s\n", h->ifname );
+		nope=1;
 	    } else if ( data->ipheader->saddr != h->peer_ip ) {
-		data->len = -1;
-		__sync_val_compare_and_swap ( &data->lock, 1, 0 );
-		continue;
-		//debug ( 6, "RX %i Non-matching IP \n", i );
-	    } else {
+	      nope=1;
+// 		data->len = -1;
+// 		__sync_val_compare_and_swap ( &data->lock, 1, 0 );
+        	//debug ( 6, "RX %i Push releasing Non-matching IP \n", i );
+	                   printf("!");
+
+	    }else nope=0;
+	    
+	    }while(nope);
+	    
 		data->len -= ETHIP4;
 		debug ( 6, "RX %i Got matching IP index %i \n", i,data->index );
-	    }
+	    
 
 	    debug ( 6, "RX %i Push releasing %i\n", i,data->index );
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
-	    h->q[i].sz++;
+	    __sync_fetch_and_add(&h->q[i].sz,1);
+	    __sync_fetch_and_add(&h->q[i].in,1);
 
 	}
 
@@ -293,7 +305,7 @@ void *rx ( void *a )
     h->q[i].id = i;
     ts.tv_sec = 0;
     ts.tv_nsec = 1000;
-
+    tun_set_queue(h->fd,1); //attach to tap queue
     switch ( h->type ) {
       case TUN:
 	  snprintf ( type, 30, "TUN" );
@@ -331,14 +343,15 @@ void *rx ( void *a )
 
 	    if ( data->len > 0 ) {
 		debug ( 6, "RX Popped %i has data %i got %i\n", i, data->index, data->len );
+
 		ret = write ( h->fd, data->ethernet_frame + ( ETH_HDRLEN + IP4_HDRLEN ), data->len );	//, 0, (struct sockaddr *) &h->sll, sizeof (h->sll));
 		if ( ret < 1 ) {
 		    die ( 0, "Error in write() rx worker %s interface", h->tifname );
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;
+
 		    debug ( 6, "RX %i wrote %i\n", i, data->index );
-		        h->q[i].sz--;
 
 		}
 		//data->len = -1;
@@ -350,7 +363,7 @@ void *rx ( void *a )
 		data->len = -1;
 	} else {
 	    debug ( 6, "RX Entering size wait - Got Null %i\n", i );
-	    while ( !h->q[i].sz );
+	    while ( h->q[i].sz<1 );
 	    debug ( 6, "RX Size change resuming %i size %i\n", i, h->q[i].sz );
 	}
 

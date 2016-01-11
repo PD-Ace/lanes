@@ -226,7 +226,7 @@ void tx_session(struct txq **TX,int txc,int rxc,struct peer_context *tmp,struct 
 	    }
 	    
 	    if (fd < 1)
-	      fd = tuntap (tmp->tifname, IFF_TAP | IFF_NO_PI);
+	      fd = tuntap (tmp->tifname, IFF_TAP | IFF_NO_PI| IFF_MULTI_QUEUE);
 	    ifup (tmp->tifname);
 	    if (fd > 0) {
 	      printf ("TUN %s is ready - %i\r\n", tmp->tifname, fd);
@@ -362,7 +362,7 @@ void rx_session(struct rxq **RX,int rxc,int txc,struct peer_context *tmp,struct 
 	      }
 	    }
 	    if (fd < 1)
-	      fd = tuntap (tmp->tifname, IFF_TAP | IFF_NO_PI);
+	      fd = tuntap (tmp->tifname, IFF_TAP | IFF_NO_PI| IFF_MULTI_QUEUE);
 	    ifup (tmp->tifname);
 	    if (fd > 0) {
 	      printf ("TUN %s is ready - %i\r\n", tmp->tifname, fd);
@@ -756,7 +756,30 @@ fill_headers (struct peer_context *pcx, struct headers *hdr, int fd) {
   hdr->iph.daddr = (pcx->peerip);
 
 }
+/*** Copied straight out of the kernel docs :P ***/
+  int tun_set_queue(int fd, int enable)
+  {
+      struct ifreq ifr;
 
+      memset(&ifr, 0, sizeof(ifr));
+
+      if (enable)
+         ifr.ifr_flags = IFF_ATTACH_QUEUE;
+      else
+         ifr.ifr_flags = IFF_DETACH_QUEUE;
+
+      return ioctl(fd, TUNSETQUEUE, (void *)&ifr);
+  }
+void set_fanout(int fanout_id,int af){
+int fanout_arg = (fanout_id | PACKET_FANOUT_CPU);
+
+	if(setsockopt(af, SOL_PACKET, PACKET_FANOUT,
+			 &fanout_arg, sizeof(fanout_arg))){
+	  die(1,"Error setting AF_PACKET Fanout\n");
+	}
+	
+ 
+}
 void
 trace_dump (char *msg, RNG * data) {
   int i = 0;
@@ -776,4 +799,5 @@ trace_dump (char *msg, RNG * data) {
   for (i; i < data->len + (ETHIP4); i++) {
     printf ("\033[1;34m%02x", data->ethernet_frame[i]);
   }
+  printf("\n");
 }
