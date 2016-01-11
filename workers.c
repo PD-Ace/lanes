@@ -251,7 +251,8 @@ void *rx_io ( void *a )
 // 		data->len = -1;
 // 		__sync_val_compare_and_swap ( &data->lock, 1, 0 );
         	//debug ( 6, "RX %i Push releasing Non-matching IP \n", i );
-	                   printf("!");
+	              //     printf("!");
+	      
 
 	    }else nope=0;
 	    
@@ -347,6 +348,8 @@ void *rx ( void *a )
 		ret = write ( h->fd, data->ethernet_frame + ( ETH_HDRLEN + IP4_HDRLEN ), data->len );	//, 0, (struct sockaddr *) &h->sll, sizeof (h->sll));
 		if ( ret < 1 ) {
 		    die ( 0, "Error in write() rx worker %s interface", h->tifname );
+		    		trace_dump("Invalid write!",data);
+
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;

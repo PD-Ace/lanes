@@ -1,6 +1,8 @@
 Lanes 
 
-Lanes , like the name suggests is meant to be a "lane" is in the ones vehicles travel on.
+Lanes is a virtual tunnel application designed with  scalability,adaptability and flexibility in mind.
+
+Like the name suggests, the tunnels are lanes,meaning uni-directional.
 
 Existing tunnel techniques are required to be bi-directional for traffic to flow. 
 

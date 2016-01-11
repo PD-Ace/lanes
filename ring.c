@@ -82,7 +82,7 @@ inline RNG *push ( Q * q )
 	q->in = 0;
     if ( ( q->sz >= ( q->rsz ) ) || ( q->in == ( q->out - 1 ) ) ) {	//Full
 	__sync_val_compare_and_swap ( &q->R[q->in].lock, 1, 0 );
-	debug ( 5, "Push - buffer full returning NULL\n" );
+	debug ( 4, "Push - buffer full returning NULL\n" );
 	__sync_val_compare_and_swap ( &q->lock, 1, 0 );
 
 	return NULL;
