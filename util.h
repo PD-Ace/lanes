@@ -30,8 +30,10 @@
 #define IP4_HDRLEN 20
 #define ARP_HDRLEN 28
 #define ARP_TIMEOUT 5
+#define ETHIP4 IP4_HDRLEN + ETH_HDRLEN
 
-static int dbglvl = 7;
+
+static int dbglvl = 6;
 
 struct peer_context MPL;	//Master peer list
 
@@ -42,9 +44,14 @@ void init_thread_list ();
 void peer_list_dump ();
 void die (int really, char *why, ...);
 void logg (char *s, ...);
-void debug (int lvl, char *s);
+void debug (int lvl, char *s,...);
 void drop_privs();
 void signal_handler(int sig);
+
+inline int atomic_islocked(int L);
+inline int atomic_lock(int *L);
+inline int atomic_unlock(int *L);
+inline int atomic_cond_lock(int *L);
 
 struct thread_management *new_thread (int job, void *(*start_routine) (void *), void *arg);
 unsigned int g_rand ();

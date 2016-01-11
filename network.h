@@ -38,7 +38,10 @@
 //In bytes  this should amunt to 60MB, ideal 50ms of "line rate output buffer" on 10G
 //buffer bloat is possible at this time,further testing and ethtool integration
 //needs to be done.
-#define BUFSIZE 62914560
+//#define BUFSIZE 62914560  
+#define BUFSIZE   1000000
+#define LBDELAY 5000000
+#define RINGS_MAX 4096
 
 void get_interface (char *if_name, struct ifreq *ifr, int req);
 int set_ip (char *ifname, uint32_t ip);
@@ -68,23 +71,25 @@ struct txq {
   char type;
   char ifname[IFNAMSIZ];
   char tifname[IFNAMSIZ];
-
+  int id;
   int fd;
   int af;
   int mtu;
   int tmtu;
-  int lost_in;
-  int lost_out;
+  int qnum;
+  int qnow;
+  int lost_in_tx;
+  int lost_out_tx;
   int packets_in;
   int packets_out;
   int bytes_in;
   int bytes_out;
-
+  int running;
   uint32_t peer_ip;
   uint32_t my_ip;
-
+  struct timespec lb_delay;
   struct sockaddr_ll sll;
-  struct thread_management *tmh;
+  struct peer_context *pcx;
   Q *q;
 };
 
@@ -92,7 +97,7 @@ struct mapq {
   char type;
   char ifname[IFNAMSIZ];
   char mapifname[IFNAMSIZ];
-
+  int id;
   int map;
   int mtu;
   int af;
@@ -105,41 +110,44 @@ struct mapq {
   int bytes_in;
   int bytes_out;
 
+  struct timespec lb_delay;
   struct ether_header eh;
   struct sockaddr_ll sll;
   struct sockaddr_ll sllmap;
-  struct thread_management *tmh;
-  Q *q;
+  struct peer_context *pcx;
+  Q q[RINGS_MAX];
 };
 struct rxq {
   char type;
   char ifname[IFNAMSIZ];
   char tifname[IFNAMSIZ];
-
+  int id;
   int fd;
   int af;
   int mtu;
   int tmtu;
-
-  int lost_in;
-  int lost_out;
+  int qnum;
+  int qnow;
+  int lost_in_rx;
+  int lost_out_rx;
   int packets_in;
   int packets_out;
   int bytes_in;
   int bytes_out;
-
+  int running;
   uint32_t peer_ip;
   uint32_t my_ip;
 
   struct ether_header eh;
   struct sockaddr_ll sll;
-  struct thread_management *tmh;
+  struct peer_context *pcx;
+  struct timespec lb_delay;
+
   Q *q;
 };
+void tx_session(struct txq **TX,int txc,int rxc,struct peer_context *tmp,struct rxq **RX);
+void rx_session(struct rxq **RX,int rxc,int txc,struct peer_context *tmp,struct txq **TX);
 
-struct txq *TX;
-struct rxq *RX;
-struct mapq *M;
 
 ///////////////////////////////////////////
 typedef struct _arp_hdr arp_hdr;
@@ -159,4 +167,8 @@ struct _arp_hdr {
 void print_tx_stats (struct txq* q);
 void print_rx_stats (struct rxq* q);
 void print_map_stats (struct mapq* q);
+ struct txq *TX;
+ struct rxq *RX;
+ struct mapq *M;
+
 #endif

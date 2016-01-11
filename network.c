@@ -100,10 +100,9 @@ enumerate_interfaces () {
   int fd = -1, index, mtu = 1500, txc = 0, rxc = 0, mpc = 0, i = 0, j = 0, k = 0, s =
     -1, sz, local = 0;
   char ipstring[64];
-  const unsigned char *mac;
   struct sockaddr_un uxs;
   struct sockaddr_in *ipaddr;
-
+ const unsigned char *mac;
   struct list_head *lh;
   struct peer_context *tmp;
 
@@ -154,71 +153,122 @@ enumerate_interfaces () {
   }
 
 /////////////////RX TX MAP SETUP/////////////
+
+  
   TX = malloc ((txc * sizeof (struct txq)));
   RX = malloc ((rxc * sizeof (struct rxq)));
   M = malloc ((mpc * sizeof (struct mapq)));
-
+  
   txc = 0;
   rxc = 0;
   mpc = 0;
-
   list_for_each_prev (lh, &(MPL.PL)) {
-    tmp = list_entry (lh, struct peer_context, PL);
+
+  
+  tmp = list_entry (lh, struct peer_context, PL);
 
     if (tmp->direction == OUT) {	// egress /outgoing
-      struct txq *txtmp = &TX[txc];
+tx_session(&TX,txc++,rxc,tmp,&RX);
 
+
+    }
+    else if (tmp->direction == IN) {	// Ingress incoming
+ rx_session(&RX,rxc++,txc,tmp,&TX);
+
+
+      
+    }
+    else if (tmp->direction == MAP) {
+
+
+      new_thread (IO, &map_in, (void *) &M);
+      for (j = 0; j < tmp->threads; j++) {
+	new_thread (IO, &map, (void *) &M);
+      }
+    }
+  }
+
+  return 1;
+}
+
+void tx_session(struct txq **TX,int txc,int rxc,struct peer_context *tmp,struct rxq **RX){
+         struct ifreq ifr;
+	 struct txq *txs= TX[txc];
+         struct thread_management *tmtmp;
+ 	 struct headers hdr;
+
+	 int k,fd,j;
+	 const unsigned char *mac;
+       if(txs==NULL || RX==NULL || tmp==NULL){
+	 die(1,"Error setting up tx session !!");
+       }
+       
       if (strlen (tmp->ifname) > 0) {
-	TX[txc].q = malloc (sizeof (Q));
-	TX[txc].af = init_af_packet (tmp->ifname, &TX[txc].sll);
 
-	if (TX[txc].af > -1) {
+	txs->af = init_af_packet (tmp->ifname, &txs->sll);
+
+	if (txs->af > -1) {
 	  get_interface (tmp->ifname, &ifr, IFMTU);
-	  TX[txc].mtu = ifr.ifr_mtu;
+	  txs->mtu = ifr.ifr_mtu;
 
 	  if (strlen (tmp->tifname) > 0) {
 
 
 	    for (k = 0; k < txc; k++) {
-	      if (TX[k].fd > 0 && strncmp (TX[k].tifname, tmp->tifname, IFNAMSIZ) == 0) {
-		fd = TX[k].fd;
+	      if (TX[k]->fd > 0 && strncmp (TX[k]->tifname, tmp->tifname, IFNAMSIZ) == 0) {
+		fd = TX[k]->fd;
 	      }
 	    }
 	    for (k = 0; k < rxc; k++) {
-	      if (RX[k].fd > 0 && strncmp (RX[k].tifname, tmp->tifname, IFNAMSIZ) == 0) {
-		fd = RX[k].fd;
+	      if (RX[k]->fd > 0 && strncmp (RX[k]->tifname, tmp->tifname, IFNAMSIZ) == 0) {
+		fd = RX[k]->fd;
 	      }
 	    }
+	    
 	    if (fd < 1)
 	      fd = tuntap (tmp->tifname, IFF_TAP | IFF_NO_PI);
 	    ifup (tmp->tifname);
 	    if (fd > 0) {
 	      printf ("TUN %s is ready - %i\r\n", tmp->tifname, fd);
-	      TX[txc].type = TUN;
-	      TX[txc].fd = fd;
-	      memcpy (TX[txc].tifname, tmp->tifname, IFNAMSIZ);
-	      memcpy (TX[txc].ifname, tmp->ifname, IFNAMSIZ);
+	      txs->type = TUN;
+	      txs->fd = fd;
+	      memcpy (txs->tifname, tmp->tifname, IFNAMSIZ);
+	      memcpy (txs->ifname, tmp->ifname, IFNAMSIZ);
 	      get_interface (tmp->ifname, &ifr, IFMAC);
 	      mac = (unsigned char *) ifr.ifr_hwaddr.sa_data;
-	      memcpy (TX[txc].sll.sll_addr, mac, 6 * sizeof (uint8_t));
+	      memcpy (txs->sll.sll_addr, mac, 6 * sizeof (uint8_t));
 
-	      TX[txc].sll.sll_family = AF_PACKET;
 	      get_interface (tmp->ifname, &ifr, IFINDEX);
-	      TX[txc].sll.sll_ifindex = ifr.ifr_ifindex;;
-	      TX[txc].sll.sll_halen = 6;
-	      TX[txc].sll.sll_protocol = htons (ETH_P_ALL);
+	      txs->sll.sll_ifindex = ifr.ifr_ifindex;;
+	      txs->sll.sll_halen = 6;
+	      txs->sll.sll_protocol = htons (ETH_P_ALL);
+      	      txs->sll.sll_family = AF_PACKET;
+
 	      set_ip (tmp->tifname, tmp->myip);
-	      TX[txc].peer_ip = tmp->peerip;
-	      TX[txc].my_ip = tmp->myip;
+	      txs->peer_ip = tmp->peerip;
+	      txs->my_ip = tmp->myip;
 
-	      fill_headers (tmp, &hdr, TX[txc].af);
-	      set_mtu (tmp->tifname, TX[txc].mtu-(ETH_HDRLEN + IP4_HDRLEN));	//TX[txc].mtu-sizeof(struct headers));
+	      set_mtu (tmp->tifname, txs->mtu-(ETH_HDRLEN + IP4_HDRLEN));	//txs->mtu-sizeof(struct headers));
+              txs->pcx=tmp; 
+	      txs->qnum=tmp->threads;
+	      txs->lb_delay.tv_nsec=LBDELAY;
+             txs->q = malloc (sizeof (Q) * tmp->threads);
 
-	      init_ring_buffer ((Q *) txtmp->q, BUFSIZE, TX[txc].mtu, &hdr);
-	      new_thread (IO, &tx_io, (void *) txtmp);
+	         fill_headers (txs->pcx, &hdr, txs->af);
+
+	      
+	      
 	      for (j = 0; j < tmp->threads; j++) {
-		TX[txc].tmh = new_thread (LBR, &tx, (void *) txtmp);
+		
+		//txs->q[j].R = calloc (BUFSIZE/(txs->mtu+sizeof(uint32_t)),(txs->mtu+sizeof(uint32_t)));
+		      init_ring_buffer (&txs->q[j],BUFSIZE/tmp->threads, txs->mtu, &hdr);
+                     txs->q[j].id=j;
+		new_thread (LBR, &tx, (void *) txs);
+		
 	      }
+	      	      new_thread (IO, &tx_io, (void *) txs);
+       	      	      new_thread (IO, &tx_lb, (void *) txs);
+
 //                          local=1;
 	    }
 	    else {
@@ -228,7 +278,7 @@ enumerate_interfaces () {
 	  }
 	  else if (strlen (tmp->socket_path) > 0) {
 
-	    /* TX[txc].type=UNIXSOCKET;
+	    /* txs->type=UNIXSOCKET;
 	       s = socket(AF_UNIX, SOCK_STREAM, 0);
 	       if (s == -1) {
 	       die(1,"Error creating unix socket");
@@ -242,9 +292,9 @@ enumerate_interfaces () {
 	       die(1,"Error binding unix socket %s",uxs.sun_path);
 	       }else{
 	       printf("Unix socket %s is ready\r\n",tmp->socket_path);
-	       TX[txc].fd=s; 
+	       txs->fd=s; 
 	       } */
-	    //   init_ring_buffer((Q*)txtmp.q,BUFSIZE,TX[txc].mtu);
+	    //   init_ring_buffer((Q*)txtmp.q,BUFSIZE,txs->mtu);
 	  }
 	  else if (strlen (tmp->pipe_path) > 0) {
 	    int tmpfd = open (tmp->pipe_path, O_RDONLY | O_CREAT);
@@ -257,11 +307,8 @@ enumerate_interfaces () {
 		   tmp->name);
 	    }
 	    else {
-	      TX[txc].type = PIPE;
-	      TX[txc].fd = tmpfd;
-	      //   init_ring_buffer ((Q *) & TX[txc].q, BUFSIZE, TX[txc].mtu);
-	      //       new_thread (IO, &tx_io, (void *) txtmp);
-
+	      txs->type = PIPE;
+	      txs->fd = tmpfd;
 	    }
 
 	  }
@@ -270,48 +317,48 @@ enumerate_interfaces () {
 		 "ERROR - No valid local data source specified for an Egress(out) tunnel for %s \r\n",
 		 tmp->name);
 	  }
-
 	}
 	else {
 	  die (1, "ERROR -%s- Unable to open raw socket for %s", tmp->name, tmp->ifname);
 	}
-
-
-
       }
       else {
 	die (1, "ERROR - No valid Egress(out) interface specified for an Egress tunnel for %s",
 	     tmp->name);
       }
+ 
+}
+void rx_session(struct rxq **RX,int rxc,int txc,struct peer_context *tmp,struct txq **TX){
+           struct ifreq ifr;
+	 struct rxq *rxs= RX[rxc];
+	 struct headers hdr;
+	   
+	 int k,fd,j;
+	 const unsigned char *mac;
+       if(rxs==NULL || TX==NULL || tmp==NULL){
+	 die(1,"Error setting up tx session !!");
+       }
+       
+        if (strlen (tmp->ifname) > 0) {
 
+	rxs->af = init_af_packet (tmp->ifname, &rxs->sll);
 
-      // }
-      ++txc;
-    }
-    else if (tmp->direction == IN) {	// Ingress incoming
-      struct rxq *rxtmp = &RX[rxc];
-
-      if (strlen (tmp->ifname) > 0) {
-	RX[rxc].q = malloc (sizeof (Q));
-
-	RX[rxc].af = init_af_packet (tmp->ifname, &RX[rxc].sll);
-
-	if (RX[rxc].af > -1) {
+	if (rxs->af > -1) {
 	  get_interface (tmp->ifname, &ifr, IFMTU);
-	  RX[rxc].mtu = ifr.ifr_mtu;
+	  rxs->mtu = ifr.ifr_mtu;
 
 	  if (strlen (tmp->tifname) > 0) {
 
 
 	    for (k = 0; k < rxc; k++) {
-	      if (RX[k].fd > 0 && strncmp (RX[k].tifname, tmp->tifname, IFNAMSIZ) == 0) {
-		fd = RX[k].fd;
+	      if (RX[k]->fd > 0 && strncmp (RX[k]->tifname, tmp->tifname, IFNAMSIZ) == 0) {
+		fd = RX[k]->fd;
 	      }
 	    }
 
 	    for (k = 0; k < txc; k++) {
-	      if (TX[k].fd > 0 && strncmp (TX[k].tifname, tmp->tifname, IFNAMSIZ) == 0) {
-		fd = TX[k].fd;
+	      if (TX[k]->fd > 0 && strncmp (TX[k]->tifname, tmp->tifname, IFNAMSIZ) == 0) {
+		fd = TX[k]->fd;
 	      }
 	    }
 	    if (fd < 1)
@@ -319,30 +366,46 @@ enumerate_interfaces () {
 	    ifup (tmp->tifname);
 	    if (fd > 0) {
 	      printf ("TUN %s is ready - %i\r\n", tmp->tifname, fd);
-	      RX[rxc].type = TUN;
-	      RX[rxc].fd = fd;
-	      memcpy (RX[rxc].tifname, tmp->tifname, IFNAMSIZ);
-	      memcpy (RX[rxc].ifname, tmp->ifname, IFNAMSIZ);
+	      rxs->type = TUN;
+	      rxs->fd = fd;
+	      memcpy (rxs->tifname, tmp->tifname, IFNAMSIZ);
+	      memcpy (rxs->ifname, tmp->ifname, IFNAMSIZ);
 
 	      get_interface (tmp->tifname, &ifr, IFMAC);
 	      mac = (unsigned char *) ifr.ifr_hwaddr.sa_data;
-	      memcpy (RX[rxc].sll.sll_addr, mac, 6 * sizeof (uint8_t));
+	      memcpy (rxs->sll.sll_addr, mac, 6 * sizeof (uint8_t));
 
-	      RX[rxc].sll.sll_family = AF_PACKET;
+	      rxs->sll.sll_family = AF_PACKET;
 	      get_interface (tmp->ifname, &ifr, IFINDEX);
-	      RX[rxc].sll.sll_ifindex = ifr.ifr_ifindex;;
-	      RX[rxc].sll.sll_halen = 6;
-	      RX[rxc].sll.sll_protocol = htons (ETH_P_ALL);
-              RX[rxc].tmtu=RX[rxc].mtu-(ETH_HDRLEN + IP4_HDRLEN);
-	      //RX[rxc].tmtu=1400;   
+	      rxs->sll.sll_ifindex = ifr.ifr_ifindex;;
+	      rxs->sll.sll_halen = 6;
+	      rxs->sll.sll_protocol = htons (ETH_P_ALL);
+              rxs->tmtu=rxs->mtu-(ETH_HDRLEN + IP4_HDRLEN);
+	      //rxs->tmtu=1400;   
 	      memset (&hdr, 0, sizeof (struct headers));
-	      RX[rxc].peer_ip = tmp->peerip;
-	      RX[rxc].my_ip = tmp->myip;
-	      init_ring_buffer ((Q *) rxtmp->q, BUFSIZE, RX[rxc].mtu, &hdr);
-	      new_thread (IO, &rx_io, (void *) rxtmp);
-	      for (j = 0; j < tmp->threads; j++) {
-		RX[rxc].tmh = new_thread (LBR, &rx, (void *) rxtmp);
+	      rxs->peer_ip = tmp->peerip;
+	      rxs->my_ip = tmp->myip;
+	      rxs->pcx=tmp;
+	      rxs->qnum=tmp->threads;
+	      rxs->lb_delay.tv_sec=0;
+	      rxs->lb_delay.tv_nsec=LBDELAY;
+	      
+             rxs->q = malloc (sizeof (Q) * tmp->threads);
+                
+                 fill_headers (rxs->pcx, &hdr, rxs->af);
+
+	            for (j = 0; j < tmp->threads; j++) {
+		     //  rxs->q[j]=malloc(sizeof(Q));
+		    //////    rxs->q[j]->R = calloc (BUFSIZE/(rxs->mtu+sizeof(uint32_t)),(rxs->mtu+sizeof(uint32_t)));
+
+		      init_ring_buffer (&rxs->q[j],BUFSIZE/tmp->threads, rxs->mtu, &hdr);
+                      rxs->q[j].id=j;  
+		new_thread (LBR, &rx, (void *)  rxs);
+		
 	      }
+	      	      new_thread (IO, &rx_io, (void *) rxs);
+	      	      new_thread (IO, &rx_lb, (void *) rxs);
+
 	    }
 	    else {
 	      printf ("TUNTAP %s for %s not ready", tmp->tifname, tmp->name);
@@ -352,7 +415,7 @@ enumerate_interfaces () {
 	  else if (strlen (tmp->socket_path) > 0) {
 	    //don't judge me :P, I'll get to unix sockets later !! //TODO
 
-	    /* RX[rxc].type=UNIXSOCKET;
+	    /* rxs->type=UNIXSOCKET;
 	       s = socket(AF_UNIX, SOCK_STREAM, 0);
 	       if (s == -1) {
 	       die(1,"Error creating unix socket");
@@ -366,9 +429,9 @@ enumerate_interfaces () {
 	       die(1,"Error binding unix socket %s",uxs.sun_path);
 	       }else{
 	       printf("Unix socket %s is ready\r\n",tmp->socket_path);
-	       RX[rxc].fd=s; 
+	       rxs->fd=s; 
 	       } */
-	    //   init_ring_buffer((Q*)txtmp.q,BUFSIZE,RX[rxc].mtu);
+	    //   init_ring_buffer((Q*)txtmp.q,BUFSIZE,rxs->mtu);
 	  }
 	  else if (strlen (tmp->pipe_path) > 0) {
 	    int tmpfd = open (tmp->pipe_path, O_RDONLY | O_CREAT);
@@ -381,9 +444,9 @@ enumerate_interfaces () {
 		   tmp->name);
 	    }
 	    else {
-	      RX[rxc].type = PIPE;
-	      RX[rxc].fd = tmpfd;
-	      //    init_ring_buffer ((Q *) & RX[rxc].q, BUFSIZE, RX[rxc].mtu);
+	      rxs->type = PIPE;
+	      rxs->fd = tmpfd;
+	      //    init_ring_buffer ((Q *) & rxs->q, BUFSIZE, rxs->mtu);
 	    }
 
 	  }
@@ -403,24 +466,7 @@ enumerate_interfaces () {
 	die (1, "ERROR - No valid Egress(out) interface specified for an Ingress tunnel for %s",
 	     tmp->name);
       }
-
-      rxc++;
-    }
-    else if (tmp->direction == MAP) {
-
-
-      new_thread (IO, &map_in, (void *) &M);
-      for (j = 0; j < tmp->threads; j++) {
-	new_thread (IO, &map, (void *) &M);
-      }
-    }
-  }
-
-  return 1;
 }
-
-
-
 int
 init_af_packet (char *ifname, struct sockaddr_ll *sll) {
   int index, fd = -1;
@@ -432,6 +478,10 @@ init_af_packet (char *ifname, struct sockaddr_ll *sll) {
   }
   else {
     fd = socket (AF_PACKET, SOCK_RAW, htons (ETH_P_ALL));
+    if(fd<1)die(1,"ERROR creating AF_PACKET socket for %s\r\n",ifname);
+    
+    bind(fd,(struct sockaddr *) sll,sizeof(struct sockaddr_ll));
+    
   }
 
   return fd;
@@ -716,14 +766,14 @@ trace_dump (char *msg, RNG * data) {
      data->index, msg, data->len);
 
   for (i = 0; i < ETH_HDRLEN; i++) {
-    printf ("%02x", data->ethernet_frame[i]);
+    printf ("\033[1;32m%02x", data->ethernet_frame[i]);
+  }
+  printf ("\r\n\0******************************************************************************\r\n");
+  for (i; i < ETHIP4; i++) {
+    printf ("\033[1;33m%02x", data->ethernet_frame[i]);
   }
   printf ("\r\n******************************************************************************\r\n");
-  for (i; i < ETH_HDRLEN + IP4_HDRLEN; i++) {
-    printf ("%02x", data->ethernet_frame[i]);
-  }
-  printf ("\r\n******************************************************************************\r\n");
-  for (i; i < data->len + (ETH_HDRLEN + IP4_HDRLEN); i++) {
-    printf ("%02x", data->ethernet_frame[i]);
+  for (i; i < data->len + (ETHIP4); i++) {
+    printf ("\033[1;34m%02x", data->ethernet_frame[i]);
   }
 }

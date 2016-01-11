@@ -4,6 +4,7 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <sys/poll.h>
 
 #include "list.h"
 ///THREAD JOBS
@@ -17,6 +18,7 @@ struct thread_management {
   void *arg;
   int job;
   int id;
+  int running;
   struct list_head TL;
 
 };
@@ -41,6 +43,9 @@ void *tx_io (void *a);
 void *rx_io (void *a);
 void *map_in (void *a);
 
+void *tx_lb(void *a);
+void *rx_lb(void *a);
+void *map_lb(void *a);
 /***************************************************************************
  * at least 1 per interface
  * per interface configurable thread count.
@@ -54,6 +59,7 @@ void *map_in (void *a);
 void *tx (void *a);
 void *rx (void *a);
 void *map (void *a);
+
 
 
 /**** background/cleanup tasks,get counter info,mesure performance,etc...

@@ -49,14 +49,16 @@ peer_list_dump () {
 
 struct thread_management *
 new_thread (int job, void *(*start_routine) (void *), void *arg) {
-
+  static int i=0;
   pthread_t *handle = malloc (sizeof (pthread_t));
   struct thread_management *tm = malloc (sizeof (struct thread_management));
-
+  
   tm->T = handle;
   tm->job = job;
-  tm->id = ++GTS.gtc;
-  tm->id;
+  i=GTS.gtc;
+  tm->id =i;
+  ++GTS.gtc;
+  
   tm->arg=arg;
   pthread_create (handle, 0, start_routine, arg);
   switch (job) {
@@ -84,23 +86,24 @@ new_thread (int job, void *(*start_routine) (void *), void *arg) {
 
 void
 die (int really, char *why, ...) {
-  char msg[256];
+  char msg[245],color[256]="\033[1;31m";
   va_list arglist;
 
   va_start (arglist, why);
-  snprintf(msg,10,"\033[1;31m");
-  vsnprintf (&msg[11], 255, why, arglist);
+  
+  vsnprintf (msg, 245, why, arglist);
+  strncat(color,msg,256);
   va_end (arglist);
 
   if (really) {
 
-    perror (msg);
-    debug (4, msg);
+    perror (color);
+    debug (4, color);
     exit (really);
   }
   else {
-    debug (4, msg);
-    perror (msg);
+    debug (4, color);
+    perror (color);
   }
 
 }
@@ -112,11 +115,18 @@ g_rand () {
 }
 
 void
-debug (int level, char *s) {
+debug (int level, char *s,...) {
 
   if (dbglvl >= level) {
-    logg (s);
+//    logg (s);
+  va_list arglist;
 
+  va_start (arglist, s);
+  vprintf (s, arglist);
+  va_end (arglist);
+  //printf ("\n");
+  fflush (stdout);
+  
   }
 }
 
@@ -151,4 +161,23 @@ void drop_privs(){
 void signal_handler(int sig){ //TODO
   
   
+}
+
+inline int atomic_islocked(int L){
+ int test=1; 
+ __sync_fetch_and_and(&test,L);
+ 
+ return test==1 ? test : 0;
+  
+}
+inline int atomic_lock(int *L){
+ return __sync_val_compare_and_swap(L,0,1); 
+}
+
+inline int atomic_unlock(int *L){
+ return __sync_val_compare_and_swap(L,1,0); 
+}
+inline int atomic_cond_lock(int *L){
+ 
+ return __sync_val_compare_and_swap(L,0,1);
 }
