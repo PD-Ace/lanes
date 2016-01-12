@@ -38,17 +38,17 @@ void *tx_io ( void *a )
     printf ( "TX IO  Type: %s Local-interface: %s Remote Interface: %s Local-FD:%02x AF_PACKET-FD:%02x MTU: %i - ONLINE\r\n", type, h->tifname, h->ifname, h->fd, h->af, h->mtu );
 
     printf ( "\r\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\r\n" );
-    for ( ; 1; i = h->qnow ) {
+    for (data=NULL ; ; i = h->qnow ) {
 	data = NULL;
 	debug ( 5, "TX Pushing\n" );
 	data = push ( &h->q[i] );
-	for ( j = 0; j < 3 && data == NULL; j++ ) {
-	    for ( i; i < h->qnum && data == NULL; i++ ) {
+	for (i=0 ;  data == NULL;i=0) {
+	    for ( ; i < h->qnum && data == NULL; i++ ) {
 		if ( h->q[i].sz < h->q[i].rsz )
 		    data = push ( &h->q[i] );
-		debug ( 5, "%i try current queue: %i\n", j, i );
+		debug ( 5, "%i try current queue: %i\n", i );
 	    }
-	    i = 0;
+	    
 	}
 	debug ( 5, "TX Pushed\n" );
 
@@ -133,15 +133,12 @@ void *tx ( void *a )
       default:
 	  snprintf ( type, 30, "UNKNOWN" );
     }
-
     printf ( "TX Worker ID: %i Type: %s Local-interface: %s Remote Interface: %s Local-FD:%02x AF_PACKET-FD:%02x MTU: %i - ONLINE\r\n", i, type, h->tifname, h->ifname, h->fd, h->af, h->mtu );
     printf ( "\r\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\r\n" );
 
-    for ( ; 1; ) {
-	if ( show_stats )
-	    print_tx_stats ( h );
+    for (data=NULL ; ; ) {
 
-	data = NULL;
+
 	debug ( 5, "TX {%i Popping}\n", i );
 
 	data = pop ( &h->q[i] );
@@ -159,6 +156,8 @@ void *tx ( void *a )
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;
+		    	      trace_dump("TX out",data);
+
 		}
 	    } else {
 		debug ( 5, "TX {%i Popping no data %i}\n", i, data->index );
@@ -222,18 +221,17 @@ void *rx_io ( void *a )
     printf ( "RX IO Type: %s Local-interface: %s Remote Interface: %s Local-FD:%02x AF_PACKET-FD:%02x MTU: %i - ONLINE\r\n", type, h->tifname, h->ifname, h->fd, h->af, h->mtu );
     printf ( "\r\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\r\n" );
 
-    for ( ; 1; i = h->qnow ) {
-	data = NULL;
+    for (data=NULL ; ; i = h->qnow ) {
+      
 	debug ( 6, "RX Pushing %i\n", i );
 	data = push ( &h->q[i] );
-	for ( j = 0; data == NULL; j++ ) {
-	    for ( i; i < h->qnum && data == NULL; ++i ) {
+	for (i=0 ; data == NULL; i=0) {
+	    for ( ; i < h->qnum && data == NULL; ++i ) {
 		if ( h->q[i].sz < h->q[i].rsz ){
 		    data = push ( &h->q[i] );
 		debug ( 5, "%i try current queue: %i\n", j, i );
 		}
 	    }
-	    i = 0;
 	}
 	debug ( 6, "RX Pushed %i\n", i );
 	if ( data != NULL ) {
@@ -243,7 +241,7 @@ void *rx_io ( void *a )
 	    if ( pfd.revents & POLLIN )
 		data->len = read ( af, data->ethernet_frame, h->mtu, 0 );	//, NULL, 0);
 
-	    if ( data->len == -1 ) {
+	    if ( data->len < 1) {
 		die ( 0, "Error in rx_io interface %s\n", h->ifname );
 		nope=1;
 	    } else if ( data->ipheader->saddr != h->peer_ip ) {
@@ -254,8 +252,10 @@ void *rx_io ( void *a )
 	              //     printf("!");
 	      
 
-	    }else nope=0;
-	    
+	    }else{
+	      nope=0;
+	    	      trace_dump("RX io",data);
+	    }
 	    }while(nope);
 	    
 		data->len -= ETHIP4;
@@ -330,10 +330,8 @@ void *rx ( void *a )
     printf ( "RX Worker ID: %i Type: %s Local-interface: %s Remote Interface: %s Local-FD:%02x AF_PACKET-FD:%02x MTU: %i - ONLINE\r\n", i, type, h->tifname, h->ifname, h->fd, h->af, h->mtu );
     printf ( "\r\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\r\n" );
 
-    for ( ; 1; ) {
-	if ( show_stats )
-	    print_rx_stats ( h );
-	data = NULL;
+    for (data=NULL ; ; ) {
+	
 
 	debug ( 6, "RX Popping %i\n", i );
 	data = pop ( &h->q[i] );
@@ -396,7 +394,7 @@ void *supervisor ( void *a )
 {
 
     start_networking (  );
-    printf ( "\rThread count: Global %i , SUP: %i ,IO: %i ,WORKERS: %i", GTS.gtc, GTS.supc, GTS.ioc, GTS.lbrc );
+    printf ( "\rThread count: Global %i , SUP: %i ,IO: %i ,WORKERS: %i\n", GTS.gtc, GTS.supc, GTS.ioc, GTS.lbrc );
     while ( 1 ) {
 	show_stats = 1;
 	sleep ( interval / 2 );

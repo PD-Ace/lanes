@@ -69,7 +69,7 @@ inline RNG *push ( Q * q )
     RNG *ret = NULL;
 
     if ( __sync_val_compare_and_swap ( &q->lock, 0, 1 ) ) {
-	debug ( 5, "Push Can't get a lock returning NULL\n" );
+	debug ( 5, "Push %i can't get a lock returning NULL\n" ,q->id);
 	return NULL;
     }
     while ( __sync_val_compare_and_swap ( &q->R[q->in].lock, 0, 1 ) ) {
@@ -82,7 +82,7 @@ inline RNG *push ( Q * q )
 	q->in = 0;
     if ( ( q->sz >= ( q->rsz ) ) || ( q->in == ( q->out - 1 ) ) ) {	//Full
 	__sync_val_compare_and_swap ( &q->R[q->in].lock, 1, 0 );
-	debug ( 4, "Push - buffer full returning NULL\n" );
+	debug ( 4, "Push %i - buffer full [%i -i] returning NULL\n",q->id,q->sz,q->rsz );
 	__sync_val_compare_and_swap ( &q->lock, 1, 0 );
 
 	return NULL;
@@ -97,12 +97,12 @@ inline RNG *pop ( Q * q )
     RNG *ret = NULL;
 
     if ( __sync_val_compare_and_swap ( &q->lock, 0, 1 ) ) {
-	debug ( 6, "Pop can't get lock returning null \n", q->id );
+	debug ( 6, "Pop %i can't get lock returning null \n", q->id );
 	return NULL;
     }
     if ( ( q->sz < 1 ) || ( q->in == q->out ) ) {
 	__sync_val_compare_and_swap ( &q->lock, 1, 0 );
-	debug ( 6, "Pop buffer empty returning null %i\n", q->id );
+	debug ( 6, "Pop %i buffer empty returning null\n", q->id );
 	return NULL;
     }
 
