@@ -33,7 +33,7 @@
 #define ETHIP4 IP4_HDRLEN + ETH_HDRLEN
 
 
-static int dbglvl = 4;
+static int dbglvl = 6;
 
 struct peer_context MPL;	//Master peer list
 

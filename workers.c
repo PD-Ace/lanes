@@ -40,7 +40,7 @@ void *tx_io ( void *a )
     printf ( "\r\n++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\r\n" );
     for (data=NULL ; ; i = h->qnow ) {
 	data = NULL;
-	debug ( 5, "TX Pushing\n" );
+	debug ( 5, "\033[1;33mTX %i Pushing\n",i );
 	data = push ( &h->q[i] );
 	for (i=0 ;  data == NULL;i=0) {
 	    for ( ; i < h->qnum && data == NULL; i++ ) {
@@ -50,10 +50,10 @@ void *tx_io ( void *a )
 	    }
 	    
 	}
-	debug ( 5, "TX Pushed\n" );
+	debug ( 5, "\033[1;33mTX %i Pushed\n",i );
 
 	if ( data != NULL ) {
-	    debug ( 5, "TX Pushed not Null %i\n", data->index );
+	    debug ( 5, "\033[1;33mTX %i Pushed not Null %i\n", i,data->index );
 	    do{
 	    poll ( &pfd, 1, -1 );
 	    if ( pfd.revents & POLLIN )
@@ -70,11 +70,12 @@ void *tx_io ( void *a )
 
 	    }
 	    }while(data->len==-1);
-	    debug ( 5, "TX Push releasing\n" );
+	    debug ( 5, "\033[1;33mTX %i Push releasing\n",i );
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
-	    h->q[i].sz++;
+	     h->q[i].sz = h->q[i].sz>=h->q[i].rsz ? h->q[i].sz : h->q[i].sz+1;
 	    __sync_fetch_and_add(&h->q[i].in,1);
-
+ if(h->q[i].in>=h->q[i].rsz)
+	       __sync_fetch_and_sub(&h->q[i].in,h->q[i].in);
 	}
     }
 
@@ -139,16 +140,16 @@ void *tx ( void *a )
     for (data=NULL ; ; ) {
 
 
-	debug ( 5, "TX {%i Popping}\n", i );
+	debug ( 5, "\033[1;33mTX %i { Popping}\n", i );
 
 	data = pop ( &h->q[i] );
-	debug ( 5, "TX {%i Popped}\n", i );
+	debug ( 5, "\033[1;33mTX %i { Popped}\n", i );
 
 	if ( data != NULL ) {
-	    debug ( 5, "TX {%i Popping Not null %i}\n", i, data->index );
+	    debug ( 5, "\033[1;33mTX %i {Popping Not null %i}\n", i, data->index );
 
 	    if ( data->len > 0 ) {
-		debug ( 5, "TX {%i Popping has data %i}\n", i, data->index );
+		debug ( 5, "\033[1;33mTX %i {Popping has data %i}\n", i, data->index );
 		ret = sendto ( af, data->ethernet_frame, data->len + ( ETH_HDRLEN + IP4_HDRLEN ), 0, ( struct sockaddr * ) &h->sll, sizeof ( h->sll ) );
 
 		if ( ret < 1 ) {
@@ -156,22 +157,22 @@ void *tx ( void *a )
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;
-		    	      trace_dump("TX out",data);
+		    //	      trace_dump("TX out",data);
 
 		}
 	    } else {
-		debug ( 5, "TX {%i Popping no data %i}\n", i, data->index );
+		debug ( 5, "\033[1;33mTX %i { Popping no data %i}\n", i, data->index );
 
 	    }
-	    debug ( 5, "TX {%i Pop releasing %i}\n", i, data->index );
+	    debug ( 5, "\033[1;33mTX %i {Pop releasing %i}\n", i, data->index );
 	    data->len = -1;
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
 	    
 	} else {
 
-	    debug ( 5, "TX {Entering size wait - Got Null %i}\n", i );
-	    while ( !h->q[i].sz );
-	    debug ( 5, "TX {Size change resuming %i size %i}\n", i, h->q[i].sz );
+	    debug ( 5, "\033[1;33mTX %i {Entering size wait - Got Null}\n", i );
+	    while ( h->q[i].sz==0 );
+	    debug ( 5, "\033[1;33mTX %i {Size change resuming %i size}\n", i, h->q[i].sz );
 	}
     }
 
@@ -223,7 +224,7 @@ void *rx_io ( void *a )
 
     for (data=NULL ; ; i = h->qnow ) {
       
-	debug ( 6, "RX Pushing %i\n", i );
+	debug ( 6, "\033[1;31mRX %i Pushing\n", i );
 	data = push ( &h->q[i] );
 	for (i=0 ; data == NULL; i=0) {
 	    for ( ; i < h->qnum && data == NULL; ++i ) {
@@ -233,9 +234,9 @@ void *rx_io ( void *a )
 		}
 	    }
 	}
-	debug ( 6, "RX Pushed %i\n", i );
+	debug ( 6, "\033[1;31mRX %i Pushed\n", i );
 	if ( data != NULL ) {
-	    debug ( 6, "RX Pushed not null %i index %i\n", i, data->index );
+	    debug ( 6, "\033[1;31mRX %i Pushed not null index %i\n", i, data->index );
 	    do{
 	    poll ( &pfd, 1, -1 );
 	    if ( pfd.revents & POLLIN )
@@ -248,25 +249,26 @@ void *rx_io ( void *a )
 	      nope=1;
 // 		data->len = -1;
 // 		__sync_val_compare_and_swap ( &data->lock, 1, 0 );
-        	//debug ( 6, "RX %i Push releasing Non-matching IP \n", i );
+        	//debug ( 6, "\033[1;31mRX %i Push releasing Non-matching IP \n", i );
 	              //     printf("!");
 	      
 
 	    }else{
 	      nope=0;
-	    	      trace_dump("RX io",data);
+	    	      //trace_dump("RX io",data);
 	    }
 	    }while(nope);
 	    
 		data->len -= ETHIP4;
-		debug ( 6, "RX %i Got matching IP index %i \n", i,data->index );
+		debug ( 6, "\033[1;31mRX %i Got matching IP index %i \n", i,data->index );
 	    
 
-	    debug ( 6, "RX %i Push releasing %i\n", i,data->index );
+	    debug ( 6, "\033[1;31mRX %i Push releasing %i\n", i,data->index );
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
-	    __sync_fetch_and_add(&h->q[i].sz,1);
-	    __sync_fetch_and_add(&h->q[i].in,1);
-
+            h->q[i].sz = h->q[i].sz>=h->q[i].rsz ? h->q[i].sz : h->q[i].sz+1;
+             __sync_fetch_and_add(&h->q[i].in,1);
+             if(h->q[i].in>=h->q[i].rsz)
+	       __sync_fetch_and_sub(&h->q[i].in,h->q[i].in);
 	}
 
     }
@@ -333,39 +335,39 @@ void *rx ( void *a )
     for (data=NULL ; ; ) {
 	
 
-	debug ( 6, "RX Popping %i\n", i );
+	debug ( 6, "\033[1;31mRX %i Popping\n", i );
 	data = pop ( &h->q[i] );
-	debug ( 6, "RX Popped %i\n", i );
+	debug ( 6, "\033[1;31mRX %i Popped\n", i );
 
 	if ( data != NULL ) {
-	    debug ( 6, "RX Popped Not null %i\n", i );
+	    debug ( 6, "\033[1;31mRX %i Popped Not null\n", i );
 
 	    if ( data->len > 0 ) {
-		debug ( 6, "RX Popped %i has data %i got %i\n", i, data->index, data->len );
+		debug ( 6, "\033[1;31mRX %i Popped has data %i got %i\n", i, data->index, data->len );
 
 		ret = write ( h->fd, data->ethernet_frame + ( ETH_HDRLEN + IP4_HDRLEN ), data->len );	//, 0, (struct sockaddr *) &h->sll, sizeof (h->sll));
 		if ( ret < 1 ) {
 		    die ( 0, "Error in write() rx worker %s interface", h->tifname );
-		    		trace_dump("Invalid write!",data);
+		    //		trace_dump("Invalid write!",data);
 
 		} else {
 		    h->packets_out++;
 		    h->bytes_out += ret;
 
-		    debug ( 6, "RX %i wrote %i\n", i, data->index );
+		    debug ( 6, "\033[1;31mRX %i wrote %i\n", i, data->index );
 
 		}
 		//data->len = -1;
 	    } else {
-		debug ( 6, "RX %i got no data %i\n", i, data->index );
+		debug ( 6, "\033[1;31mRX %i got no data %i\n", i, data->index );
 	    }
-	    debug ( 6, "RX %i releasing %i\n", i, data->index );
+	    debug ( 6, "\033[1;31mRX %i releasing %i\n", i, data->index );
 	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
 		data->len = -1;
 	} else {
-	    debug ( 6, "RX Entering size wait - Got Null %i\n", i );
+	    debug ( 6, "\033[1;31mRX %i Entering size wait - Got Null\n", i );
 	    while ( h->q[i].sz<1 );
-	    debug ( 6, "RX Size change resuming %i size %i\n", i, h->q[i].sz );
+	    debug ( 6, "\033[1;31mRX %i Size change resuming size %i\n", i, h->q[i].sz );
 	}
 
     }

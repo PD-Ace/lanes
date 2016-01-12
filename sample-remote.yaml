@@ -1,0 +1,73 @@
+# test config used for development 
+
+global:
+ - name : testing123
+ - threads : 4
+ - fips : compliant
+
+symmetric-peers:
+
+ - name: texas-in
+   interface: jotho0
+   tunnel: stringtap0
+   peer-ip: 192.168.117.220
+   local-ip: 192.168.117.224
+   next-hop: 192.168.117.220
+   type: ingress
+   cipher: aes256
+   key: secretpass
+   threads: 1
+
+ - name: texas-out
+   interface: jotho0
+   tunnel: stringtap0
+   peer-ip: 192.168.117.220
+   local-ip: 192.168.117.224
+   next-hop: 192.168.117.220
+   type: egress
+   cipher: aes256
+   key: secretpass
+   threads: 1
+
+ #- name: hong-kong_in
+   #type: ingress
+   #interface: wlan0
+   #tunnel: tap1
+   #peer-ip: 1.1.2.2
+   #cipher: camellia
+   #key: ask
+   #threads: 1
+   
+ #- name: hong-kong_out
+   #type: egress
+   #interface: wlan1
+   #tunnel: tap1
+   #peer-ip: 2.2.2.2
+   #cipher: serpent
+   #key: ask
+   #threads: 1
+   
+ #- name: milan_in
+   #type: ingress
+   #interface: bond0
+   #peer-ip: 33.44.55.66
+   #socket: /home/ash/milanpipe
+   #cipher: serpent
+   #key: '@#%$@#%SWADFSDF@#$%R'
+   #threads: 1
+   
+ #- name: milan_out
+   #type: egress
+   #interface: bond0
+   #peer-ip: 33.44.55.66
+   #socket: /home/ash/milanpipe
+   #cipher: serpent
+   #key: '@#%$@#%SWADFSDF@#$%R'
+   #threads: 1
+   
+#assymetric-peers:
+ #- name: fargo
+   #interface: ppp0
+   #algorithm: rsa
+   #certificate: /blah/some/cert.pem
+   #threads: 1

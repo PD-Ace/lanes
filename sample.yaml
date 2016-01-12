@@ -1,0 +1,85 @@
+# test config used for development 
+#the commented sections are just examples of what is planned
+#only the uncommented stuff is somewhat tested at the moment.
+
+global:
+#for logging and such to identify this instace from others in the network
+ - name : testing123  
+# - threads : 4   #will probably get rid of this
+# - fips : compliant  #whatever
+
+symmetric-peers:
+#name is for logging
+ - name: texas-in
+ # this is an ingress tunnel,meaning it will only decrypt incoming traffic from "interface:"
+ # to "tunnel:" or "socket_path:",etc...
+   type: ingress
+   interface: eth1
+   tunnel: tap0
+#peer-ip would be the other end
+#local-ip would be the tunnel interface's IP (if tun/tap is used)
+#next hop is the next router/default-gateway,we need this to fill in the destination mac
+#for the outgoing encapsulating ethernet frame
+   peer-ip: 192.168.117.224
+   local-ip: 192.168.117.220
+   next-hop: 192.168.117.223
+#as of now this is in testing so only aes256 is or "none" is supported   
+   cipher: aes256
+   key: secretpass
+# for ingress this will be the tx() threads that encrypt the payload and put it on the wire
+   threads: 1
+
+#egress tunnels use the same principle except in reverse   
+ - name: texas-out
+   interface: eth1
+   tunnel: tap0
+   peer-ip: 192.168.117.224
+   local-ip: 192.168.117.220
+   next-hop: 192.168.117.223
+   type: egress
+   cipher: aes256
+   key: secretpass
+   threads: 1
+
+ #- name: hong-kong_in
+   #type: ingress
+   #interface: wlan0
+   #tunnel: tap1
+   #peer-ip: 1.1.2.2
+   #cipher: camellia
+   #key: ask
+   #threads: 1
+   
+ #- name: hong-kong_out
+   #type: egress
+   #interface: wlan1
+   #tunnel: tap1
+   #peer-ip: 2.2.2.2
+   #cipher: serpent
+   #key: ask
+   #threads: 1
+   
+ #- name: milan_in
+   #type: ingress
+   #interface: bond0
+   #peer-ip: 33.44.55.66
+   #socket: /home/ash/milanpipe
+   #cipher: serpent
+   #key: '@#%$@#%SWADFSDF@#$%R'
+   #threads: 1
+   
+ #- name: milan_out
+   #type: egress
+   #interface: bond0
+   #peer-ip: 33.44.55.66
+   #socket: /home/ash/milanpipe
+   #cipher: serpent
+   #key: '@#%$@#%SWADFSDF@#$%R'
+   #threads: 1
+   
+#assymetric-peers:
+ #- name: fargo
+   #interface: ppp0
+   #algorithm: rsa
+   #certificate: /blah/some/cert.pem
+   #threads: 1

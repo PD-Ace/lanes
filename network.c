@@ -267,7 +267,7 @@ void tx_session(struct txq **TX,int txc,int rxc,struct peer_context *tmp,struct 
 		
 	      }
 	      	      new_thread (IO, &tx_io, (void *) txs);
-       	      	      new_thread (IO, &tx_lb, (void *) txs);
+       	      	    //  new_thread (IO, &tx_lb, (void *) txs);
 
 //                          local=1;
 	    }
@@ -404,7 +404,7 @@ void rx_session(struct rxq **RX,int rxc,int txc,struct peer_context *tmp,struct 
 		
 	      }
 	      	      new_thread (IO, &rx_io, (void *) rxs);
-	      	      new_thread (IO, &rx_lb, (void *) rxs);
+	      	    //  new_thread (IO, &rx_lb, (void *) rxs);
 
 	    }
 	    else {
