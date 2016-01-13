@@ -1,7 +1,6 @@
 #ifndef WORKERS_H
 #define WORKERS_H
 
-
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/poll.h>

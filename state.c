@@ -1,3 +1,6 @@
+#define _GNU_SOURCE      //we need this for recvmmsg/sendmmsg
+#define _USE_GNU 1
+
 #include <stdio.h>
 
 

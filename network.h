@@ -15,6 +15,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
+
 #include <sys/socket.h>
 #include <netinet/ether.h>
 #include <netinet/ip.h>
@@ -30,6 +31,7 @@
 #include "util.h"
 #include "list.h"
 #include "workers.h"
+
 #include "ring.h"
 
 

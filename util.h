@@ -11,6 +11,7 @@
 #include <netinet/ip.h>
 
 #include "workers.h"
+
 #include "main.h"
 
 #include "stdio.h"
@@ -31,7 +32,7 @@
 #define ARP_HDRLEN 28
 #define ARP_TIMEOUT 5
 #define ETHIP4 IP4_HDRLEN + ETH_HDRLEN
-
+#define LOCKFAIL 0x10C43D
 
 static int dbglvl = 6;
 
@@ -48,10 +49,11 @@ void debug (int lvl, char *s,...);
 void drop_privs();
 void signal_handler(int sig);
 
-inline int atomic_islocked(int L);
-inline int atomic_lock(int *L);
-inline int atomic_unlock(int *L);
-inline int atomic_cond_lock(int *L);
+inline int atomic_islocked(volatile int L);
+inline int atomic_lock(volatile int *L);
+inline int atomic_unlock(volatile int *L);
+inline int atomic_cond_lock (volatile int *L);
+inline void  adaptive_spin (struct timespec *ts,volatile int watch,volatile int *spins);
 
 struct thread_management *new_thread (int job, void *(*start_routine) (void *), void *arg);
 unsigned int g_rand ();

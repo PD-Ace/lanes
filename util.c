@@ -163,21 +163,47 @@ void signal_handler(int sig){ //TODO
   
 }
 
-inline int atomic_islocked(int L){
+inline int atomic_islocked(volatile int L){
  int test=1; 
  __sync_fetch_and_and(&test,L);
  
  return test==1 ? test : 0;
   
 }
-inline int atomic_lock(int *L){
+inline int atomic_lock(volatile int *L){
  return __sync_val_compare_and_swap(L,0,1); 
 }
 
-inline int atomic_unlock(int *L){
+inline int atomic_unlock(volatile int *L){
  return __sync_val_compare_and_swap(L,1,0); 
 }
-inline int atomic_cond_lock(int *L){
+inline int atomic_cond_lock(volatile int *L){
  
  return __sync_val_compare_and_swap(L,0,1);
+}
+
+inline void adaptive_spin (struct timespec *ts,volatile int watch,volatile int *spins){
+  const int inc=1000;
+  
+  if (ts->tv_nsec < inc){
+    ts->tv_sec=0;
+    ts->tv_nsec=inc;
+    *spins=0;
+  }
+  else if (*spins < 1000000 && ts->tv_nsec >=250000){
+   ts->tv_nsec= ts->tv_nsec/2;
+   *spins -= 100000;
+  }else if(ts->tv_nsec >= 500000){
+   ts->tv_nsec= inc; 
+  }
+  ts->tv_nsec += inc;
+  
+  while(watch==0){
+   ++(*spins);
+   nanosleep(ts,NULL);
+   debug(6,"\r nsec %i , spins %i",ts->tv_nsec,*spins);
+  }
+  printf("\n");
+    
+  
 }

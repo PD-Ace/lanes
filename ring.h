@@ -22,13 +22,15 @@
 typedef struct queue {
  //pthread_mutex_t mutex;
 //pthread_spinlock_t spinlock;
-    int id;
-    int bsz;
-    int rsz;
-    int in;
-    int out;
-    int sz;
-    int lock;
+    volatile unsigned int id;
+    volatile unsigned int bsz;
+    volatile unsigned int rsz;
+    volatile unsigned int in;
+    volatile unsigned int out;
+    volatile unsigned int sz;
+    volatile unsigned int lock;
+    volatile unsigned int spins;
+    struct timespec ts;
   RNG *R;
 
 } Q;

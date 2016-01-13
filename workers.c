@@ -42,8 +42,8 @@ void *tx_io ( void *a )
 	data = NULL;
 	debug ( 5, "\033[1;33mTX %i Pushing\n",i );
 	data = push ( &h->q[i] );
-	for (i=0 ;  data == NULL;i=0) {
-	    for ( ; i < h->qnum && data == NULL; i++ ) {
+	for (i=0 ;  data == NULL || data==LOCKFAIL;i=0) {
+	    for ( ; i < h->qnum && (data == NULL || data == LOCKFAIL); i++ ) {
 		if ( h->q[i].sz < h->q[i].rsz )
 		    data = push ( &h->q[i] );
 		debug ( 5, "%i try current queue: %i\n", i );
@@ -52,7 +52,7 @@ void *tx_io ( void *a )
 	}
 	debug ( 5, "\033[1;33mTX %i Pushed\n",i );
 
-	if ( data != NULL ) {
+	if ( data != NULL && data != LOCKFAIL) {
 	    debug ( 5, "\033[1;33mTX %i Pushed not Null %i\n", i,data->index );
 	    do{
 	    poll ( &pfd, 1, -1 );
@@ -108,7 +108,9 @@ void *tx ( void *a )
 
     char type[30];
     RNG *data;
-
+    h->q[i].ts.tv_sec=0;
+    h->q[i].ts.tv_nsec=1000;
+    h->q[i].spins=0;
     struct headers hdr;
 
     i = __sync_fetch_and_add ( &h->id, 1 );
@@ -145,7 +147,7 @@ void *tx ( void *a )
 	data = pop ( &h->q[i] );
 	debug ( 5, "\033[1;33mTX %i { Popped}\n", i );
 
-	if ( data != NULL ) {
+	if ( data != NULL && data != LOCKFAIL) {
 	    debug ( 5, "\033[1;33mTX %i {Popping Not null %i}\n", i, data->index );
 
 	    if ( data->len > 0 ) {
@@ -166,13 +168,18 @@ void *tx ( void *a )
 	    }
 	    debug ( 5, "\033[1;33mTX %i {Pop releasing %i}\n", i, data->index );
 	    data->len = -1;
-	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
+	    	     h->q[i].sz = h->q[i].sz < 1 ? 0 : h->q[i].sz-1;
+
+	    atomic_unlock ( &data->lock );
 	    
-	} else {
+	} else if(data == NULL) {
 
 	    debug ( 5, "\033[1;33mTX %i {Entering size wait - Got Null}\n", i );
-	    while ( h->q[i].sz==0 );
-	    debug ( 5, "\033[1;33mTX %i {Size change resuming %i size}\n", i, h->q[i].sz );
+	    while ( h->q[i].sz==0 )nanosleep(&h->q[i].ts,NULL);
+	    debug ( 5, "\033[1;33mTX %i {Size change resuming  size %i}\n", i, h->q[i].sz );
+	}else if(data == LOCKFAIL){
+	 debug(5, "\033[1;33mTX %i LOCKFAIL. size %i in %i out %i\n",
+	              i,h->q[i].sz,h->q[i].in,h->q[i].out);
 	}
     }
 
@@ -226,8 +233,8 @@ void *rx_io ( void *a )
       
 	debug ( 6, "\033[1;31mRX %i Pushing\n", i );
 	data = push ( &h->q[i] );
-	for (i=0 ; data == NULL; i=0) {
-	    for ( ; i < h->qnum && data == NULL; ++i ) {
+	for (i=0 ; data == NULL || data == LOCKFAIL; i=0) {
+	    for ( ; i < h->qnum && (data == NULL || data==LOCKFAIL); ++i ) {
 		if ( h->q[i].sz < h->q[i].rsz ){
 		    data = push ( &h->q[i] );
 		debug ( 5, "%i try current queue: %i\n", j, i );
@@ -235,7 +242,7 @@ void *rx_io ( void *a )
 	    }
 	}
 	debug ( 6, "\033[1;31mRX %i Pushed\n", i );
-	if ( data != NULL ) {
+	if ( data != NULL && data != LOCKFAIL) {
 	    debug ( 6, "\033[1;31mRX %i Pushed not null index %i\n", i, data->index );
 	    do{
 	    poll ( &pfd, 1, -1 );
@@ -264,7 +271,7 @@ void *rx_io ( void *a )
 	    
 
 	    debug ( 6, "\033[1;31mRX %i Push releasing %i\n", i,data->index );
-	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
+	    atomic_unlock ( &data->lock );
             h->q[i].sz = h->q[i].sz>=h->q[i].rsz ? h->q[i].sz : h->q[i].sz+1;
              __sync_fetch_and_add(&h->q[i].in,1);
              if(h->q[i].in>=h->q[i].rsz)
@@ -339,7 +346,7 @@ void *rx ( void *a )
 	data = pop ( &h->q[i] );
 	debug ( 6, "\033[1;31mRX %i Popped\n", i );
 
-	if ( data != NULL ) {
+	if ( data != NULL && data != LOCKFAIL ) {
 	    debug ( 6, "\033[1;31mRX %i Popped Not null\n", i );
 
 	    if ( data->len > 0 ) {
@@ -362,12 +369,16 @@ void *rx ( void *a )
 		debug ( 6, "\033[1;31mRX %i got no data %i\n", i, data->index );
 	    }
 	    debug ( 6, "\033[1;31mRX %i releasing %i\n", i, data->index );
-	    __sync_val_compare_and_swap ( &data->lock, 1, 0 );
-		data->len = -1;
-	} else {
+	    		data->len = -1;
+	    h->q[i].sz = h->q[i].sz < 1 ? 0 : h->q[i].sz-1;
+	    atomic_unlock ( &data->lock );
+	} else if (data==NULL){
 	    debug ( 6, "\033[1;31mRX %i Entering size wait - Got Null\n", i );
-	    while ( h->q[i].sz<1 );
+	    while ( h->q[i].sz < 1 )nanosleep(&h->q[i].ts,NULL);
 	    debug ( 6, "\033[1;31mRX %i Size change resuming size %i\n", i, h->q[i].sz );
+	}else if  ( data==LOCKFAIL){
+	 debug(6, "\033[1;33mRX %i LOCKFAIL. size %i in %i out %i\n",
+	              i,h->q[i].sz,h->q[i].in,h->q[i].out); 
 	}
 
     }
