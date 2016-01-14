@@ -117,7 +117,7 @@ g_rand () {
 void
 debug (int level, char *s,...) {
 
-  if (dbglvl >= level) {
+  if (global.debug >= level) {
 //    logg (s);
   va_list arglist;
 
@@ -162,7 +162,41 @@ void signal_handler(int sig){ //TODO
   
   
 }
-
+void print_usage(){
+ printf("Usage:\nlanes [-d <0-7>] [-h] -c /sample.yaml\n"
+         "-d <0-7>  Debug level 0 is minimal 7 is everything\n"
+	 "-h        Display this help\n"
+	 "-c <path> Configuration file path\n");
+}
+int parse_args(int argc,char **argv, struct global_settings *g){
+  char c;
+  int debug=4;
+  
+      while ((c = getopt(argc, argv, ":hd:c:")) != -1) {
+               switch(c){
+		 case 'd':
+		  // printf("debug level is %i\n",atoi(optarg));
+		   debug=atoi(optarg);
+		   break;
+		 case 'c':
+		   strncpy(global.config_file,optarg,255);
+		//   printf("Config file is %s\n",global.config_file);
+		   break;
+		 case ':' :
+		   die(1,"%c requires an argument!\n",optopt);
+		   break;
+		 case 'h':
+		   print_usage();
+		   break;
+		 default:
+		   die(1,"Error parsing config\n");
+	       }
+      }
+      global.debug=debug;
+      if(strlen(global.config_file)<1)
+	die(1,"No config file specified\n");
+  return 0;
+}
 inline int atomic_islocked(volatile int L){
  int test=1; 
  __sync_fetch_and_and(&test,L);

@@ -15,7 +15,9 @@
 struct global_settings {
   char instance_name[64];
   unsigned int fips_compliant;	//meh..whatever maybe someday :P //TODO
-
+  char config_file[256];
+  
+  int debug;
 };
 struct peer_context {
   int id;
@@ -41,5 +43,6 @@ struct peer_context {
   struct list_head PL;
 };
 
-static struct global_settings global;
+struct global_settings global;
+
 #endif

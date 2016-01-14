@@ -32,9 +32,11 @@
 #define ARP_HDRLEN 28
 #define ARP_TIMEOUT 5
 #define ETHIP4 IP4_HDRLEN + ETH_HDRLEN
-#define LOCKFAIL 0x10C43D
 
-static int dbglvl = 6;
+
+extern char *optarg;
+extern int optind, optopt;
+
 
 struct peer_context MPL;	//Master peer list
 
@@ -64,5 +66,4 @@ struct headers {
   struct iphdr iph;
 
 };
-
 #endif

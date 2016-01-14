@@ -38,4 +38,6 @@ typedef struct queue {
 inline RNG *push (Q * q);
 inline RNG *pop(Q *q);
 void init_ring_buffer (Q* q,int size, int chunks, struct headers *hdr);
+static  RNG * LOCKFAIL=(RNG*)0x10C43D;
+
 #endif
