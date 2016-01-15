@@ -801,3 +801,21 @@ trace_dump (char *msg, RNG * data) {
   }
   printf("\n");
 }
+
+void free_tx(struct txq *h){
+  free(h->q->R);
+  free(h->q);
+  free(h);
+  
+}
+
+void free_rx(struct rxq *h){
+    free(h->q->R);
+  free(h->q);
+  free(h);
+}
+void free_map(struct mapq *h){
+    free(h->q->R);
+  free(h->q);
+  free(h);
+}

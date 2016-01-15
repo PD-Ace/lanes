@@ -1,15 +1,30 @@
+#define _GNU_SOURCE
+#ifndef __USE_GNU
+#define __USE_GNU
+#include <sched.h>
+#endif
+
 #ifndef WORKERS_H
 #define WORKERS_H
 
 #include <pthread.h>
-#include <stdio.h>
+//#include <stdio.h>
 #include <sys/poll.h>
+
+#include <unistd.h>
+#ifndef __USE_GNU
+#define __USE_GNU
+#endif
+#define _GNU_SOURCE
+#include <sched.h>
 
 #include "list.h"
 ///THREAD JOBS
 #define SUP 100			//supervisor
 #define IO 200			// Local data IO
 #define LBR 300			// Labourers ,encrypt outgoing or decrypt incoming and pass it to IO threads
+
+#define SLOWSPIN 2000
 
 static int show_stats=0,interval=2;
 struct thread_management {

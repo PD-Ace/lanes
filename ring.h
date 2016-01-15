@@ -13,7 +13,7 @@
   uint8_t *footer;
    int len;
    int index;
-   volatile int lock;
+    int lock;
   uint8_t *ethernet_frame;
   struct iphdr *ipheader;
    uint8_t *data;
@@ -22,14 +22,15 @@
 typedef struct queue {
  //pthread_mutex_t mutex;
 //pthread_spinlock_t spinlock;
-    volatile unsigned int id;
-    volatile unsigned int bsz;
-    volatile unsigned int rsz;
-    volatile unsigned int in;
-    volatile unsigned int out;
-    volatile unsigned int sz;
-    volatile unsigned int lock;
-    volatile unsigned int spins;
+    volatile uint32_t id;
+     uint32_t bsz;
+     uint32_t rsz;
+     uint32_t in;
+     uint32_t out;
+     uint32_t sz;
+     uint32_t lock;
+     uint32_t spins;
+     uint8_t full;
     struct timespec ts;
   RNG *R;
 

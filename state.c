@@ -331,6 +331,8 @@ stop_threads () {
 
 void
 start_supervisor () {
+  global.run=1;
+  global.running=1;
   init_thread_list ();
   new_thread (SUP, &supervisor, NULL);
 }

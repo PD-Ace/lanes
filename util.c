@@ -114,7 +114,7 @@ g_rand () {
   return rand () % 1000 + 1;
 }
 
-void
+inline void
 debug (int level, char *s,...) {
 
   if (global.debug >= level) {
@@ -142,7 +142,7 @@ logg (char *s, ...) {
   fflush (stdout);
 }
 
-unsigned short
+inline unsigned short
 csum (unsigned short *buf, int nwords) {
   unsigned long sum;
 
@@ -152,15 +152,68 @@ csum (unsigned short *buf, int nwords) {
   sum += (sum >> 16);
   return (unsigned short) (~sum);
 }
-//soon.... //TODO
+
 void drop_privs(){
-  
-  
+  int ret=0;
+  ret+=setgid (65533);
+  ret+=setuid (65534);
+  scmp_filter_ctx ctx;
+  ctx = seccomp_init(SCMP_ACT_KILL);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(nanosleep), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(rt_sigreturn), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(read), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(write), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(ioctl), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(mmap), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(munmap), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(close), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(rt_sigaction), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(rt_sigprocmask), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(exit_group), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(futex), 0);
+  ret+=seccomp_rule_add(ctx, SCMP_ACT_ALLOW, SCMP_SYS(dup2), 2, 
+                        SCMP_A0(SCMP_CMP_EQ, 1),
+                        SCMP_A1(SCMP_CMP_EQ, 2));
+  if(ret)
+    die(1,"Error dropping priviledge!");
+  ret=seccomp_load(ctx);
+  if(ret <0)
+    die(1,"Error loading SECCOMP!");
+  seccomp_release(ctx);
+
 }
 
-void signal_handler(int sig){ //TODO
+void signal_handler(int signal){ 
   
-  
+// debug (0,"\033[1;31m***********************************SIGNAL(%d) CAUGHT******************************\n"
+//,signal);
+
+    switch (signal)
+    {
+    case SIGSEGV:
+      die (0xDEAD,"Of all the things I've lost I miss my mind the most.\a\n");
+      
+      break;
+    case SIGKILL:
+       die(0xDEAD,"KILLED !!!\n");
+      break;
+    case SIGCHLD:
+      printf ("Child process exited.\n");
+      break;
+    case SIGTERM:
+         debug(0,"SIGTERM received. Termination signal will be sent to all threads.\n");
+	 global.run=0;
+      break;      
+    case SIGTTOU:
+    case SIGPROF :
+     //   debug(4,"Profiling has started\n");
+	break;
+    default:
+      die (1,"Houston We have a problem!!\n");
+      return;
+      break;
+    }
 }
 void print_usage(){
  printf("Usage:\nlanes [-d <0-7>] [-h] -c /sample.yaml\n"
@@ -197,26 +250,26 @@ int parse_args(int argc,char **argv, struct global_settings *g){
 	die(1,"No config file specified\n");
   return 0;
 }
-inline int atomic_islocked(volatile int L){
+inline int atomic_islocked( int L){
  int test=1; 
  __sync_fetch_and_and(&test,L);
  
  return test==1 ? test : 0;
   
 }
-inline int atomic_lock(volatile int *L){
+inline int atomic_lock( int *L){
  return __sync_val_compare_and_swap(L,0,1); 
 }
 
-inline int atomic_unlock(volatile int *L){
+inline int atomic_unlock( int *L){
  return __sync_val_compare_and_swap(L,1,0); 
 }
-inline int atomic_cond_lock(volatile int *L){
+inline int atomic_cond_lock( int *L){
  
  return __sync_val_compare_and_swap(L,0,1);
 }
 
-inline void adaptive_spin (struct timespec *ts,volatile int watch,volatile int *spins){
+inline void adaptive_spin (struct timespec *ts, int watch, int *spins){
   const int inc=1000;
   
   if (ts->tv_nsec < inc){

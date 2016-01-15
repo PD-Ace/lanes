@@ -45,6 +45,7 @@ void init_ring_buffer ( Q * q, int size, int chunks, struct headers *hdr )
     }
     
         q->lock = 0;
+	q->full=0;
 	for(i=0;i < q->rsz;i++){
 	 if(!valid_RNG(&q->R[i])){
 	  die(1,"Ring validation failed after initialization!! index %i\n",i); 
@@ -59,7 +60,16 @@ inline int valid_RNG ( RNG * r )
 
     return 0;
 }
-
+inline void reset_ring(Q* q){
+  int i=0;
+  q->in=0;
+  q->out=0;
+  q->sz=0;
+  q->lock=0;
+  q->full=0;
+  for(i=0;i<q->rsz;i++)
+    q->R[i].len=0;
+}
 /*
  
  * q - handle to the ring buffer 
@@ -75,6 +85,7 @@ inline RNG *push ( Q * q )
     RNG *ret = NULL;
 
     if (atomic_lock(&q->lock) ) {
+
 	debug ( 5, "\033[1;92mPush %i can't get a lock returning LOCKFAIL\n" ,q->id);
 	return LOCKFAIL;
     }
@@ -87,12 +98,14 @@ inline RNG *push ( Q * q )
     if ( q->in >= q->rsz )
 	q->in = 0;
     if ( ( q->sz >= ( q->rsz-1 ) ) || ( q->in == ( q->out - 1 ) ) ) {	//Full
+        q->full=1;
 	atomic_unlock ( &q->R[q->in].lock );
 	debug ( 4, "\033[1;92mPush %i - buffer full [%i %i] returning NULL\n",q->id,q->sz,q->rsz );
 	atomic_unlock ( &q->lock );
 
 	return NULL;
     }
+     __builtin_prefetch ((void*) q->R[q->in].ethernet_frame,1,3);
     atomic_unlock ( &q->lock );
     return &q->R[q->in];
 }
@@ -109,6 +122,10 @@ inline RNG *pop ( Q * q )
     if ( ( q->sz < 1 ) || ( q->in == q->out ) ) {
       q->sz=0;
 	atomic_unlock ( &q->lock );
+	if(q->full){
+	  reset_ring(q);
+	  debug(4,"Ring %i has been reset\n",q->id);
+	}
 	debug ( 6, "\033[193mPop %i buffer empty returning null\n", q->id );
 	return NULL;
     }
@@ -121,5 +138,7 @@ if ( q->out >= q->rsz-1 )
     }
 
     atomic_unlock( &q->lock );
+    //++q->out;
+__builtin_prefetch ((void*) q->R[q->out+1].ethernet_frame,0,3);
     return &q->R[q->out++];
 }

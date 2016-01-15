@@ -6,7 +6,7 @@
 
 #include <net/if.h>
 #include <stdint.h>
-
+#include <signal.h>
 
 #define IN 0
 #define OUT 1
@@ -16,8 +16,10 @@ struct global_settings {
   char instance_name[64];
   unsigned int fips_compliant;	//meh..whatever maybe someday :P //TODO
   char config_file[256];
-  
+  int cpu_available;
   int debug;
+  int run;
+  int running;
 };
 struct peer_context {
   int id;

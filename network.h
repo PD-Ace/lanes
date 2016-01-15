@@ -119,7 +119,7 @@ struct mapq {
   struct sockaddr_ll sll;
   struct sockaddr_ll sllmap;
   struct peer_context *pcx;
-  Q q[RINGS_MAX];
+  Q *q;
 };
 struct rxq {
   char type;

@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <netinet/ether.h>
 #include <netinet/ip.h>
+#include <seccomp.h> 
 
 #include "workers.h"
 
@@ -51,11 +52,11 @@ void debug (int lvl, char *s,...);
 void drop_privs();
 void signal_handler(int sig);
 
-inline int atomic_islocked(volatile int L);
-inline int atomic_lock(volatile int *L);
-inline int atomic_unlock(volatile int *L);
-inline int atomic_cond_lock (volatile int *L);
-inline void  adaptive_spin (struct timespec *ts,volatile int watch,volatile int *spins);
+inline int atomic_islocked( int L);
+inline int atomic_lock( int *L);
+inline int atomic_unlock( int *L);
+inline int atomic_cond_lock ( int *L);
+inline void  adaptive_spin (struct timespec *ts, int watch, int *spins);
 
 struct thread_management *new_thread (int job, void *(*start_routine) (void *), void *arg);
 unsigned int g_rand ();
