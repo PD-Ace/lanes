@@ -1,42 +1,8 @@
-- OpenLanes Operational Specification
+#             Lanes protocol - draft specification
 
-TX-IO
-thread count == $cpucount/2 (default; user configurable)
-
-polls all local data sources
-decides queue based on data source
-queues data without further processing
-
-TX
-thread count == $cpucount --fixed
-pops data blocks from queue
-fragments as needed
-fills out payload header
-encrypts accordingly
-transmits using the appropriate associated outgoing interface
-
-RX IO 
-
-thread count == $cpucount/2 (default; user configurable)
-polls all local configured NIC's
-receives and validates frames
-decides queue based on payload header tunnel id field
-queues data without further processing
-
-RX
-
-thread count == $cpucount -- fixed
-pops data blocks from queue
-decrypts packets
-re-assembles fragments as needed
-decides what to do with decrypted data based type and type value
-
-**************************************************************************
-             Lanes protocol - draft specification
-
- - Protocol data unit  (Packet/Frame) structure 
+ ### Protocol data unit  (Packet/Frame) structure 
  
-   
+```   
 
 +----------------------------------------------------------------+----------------+
 |                ~14 Bytes of Ethernet frame                     | 38 bytes raw v4|
@@ -77,7 +43,8 @@ decides what to do with decrypted data based type and type value
 |                                                                |                |
 +----------------------------------------------------------------+----------------+
 
-- Fields 
+```
+### Fields 
 
     - IPv4,IPv6 and UDP    
       * If the user has configured an access control list permitting or denying a specific 
@@ -190,7 +157,7 @@ decides what to do with decrypted data based type and type value
                   * a non zero value is useful to inform the receiver, to respond a certain way, should it
                     support this optional feature.
                    
-- Protocol requirements
+### Protocol requirements
   
   - Uni-directional tunnels
        * Compliant implementations of the Lanes protocol cannot associate a tunnel ID with more than one direction of
@@ -225,7 +192,7 @@ decides what to do with decrypted data based type and type value
        * The tunnel ID and the packet's payload type and value properties are the only factor that should decide how traffic
          is processed after reception.
 
--Other comments   
+### Other comments   
     * At this time this draft specification,the operational specification of the current implementation as well as
       the implementation itself are under heavy development. if you're reading this your input is very much welcome.
       
@@ -262,4 +229,37 @@ decides what to do with decrypted data based type and type value
        if implemented things like per-tunnel QoS will be possible. not sure how good of an idea this is since upper layer protocols
        can already do this,regardless it will be an optional protocol feature. 
      
-     
+***************************************************************************************************************************
+
+## - OpenLanes Operational Specification
+
+TX-IO
+thread count == $cpucount/2 (default; user configurable)
+
+polls all local data sources
+decides queue based on data source
+queues data without further processing
+
+TX
+thread count == $cpucount --fixed
+pops data blocks from queue
+fragments as needed
+fills out payload header
+encrypts accordingly
+transmits using the appropriate associated outgoing interface
+
+RX IO 
+
+thread count == $cpucount/2 (default; user configurable)
+polls all local configured NIC's
+receives and validates frames
+decides queue based on payload header tunnel id field
+queues data without further processing
+
+RX
+
+thread count == $cpucount -- fixed
+pops data blocks from queue
+decrypts packets
+re-assembles fragments as needed
+decides what to do with decrypted data based type and type value
