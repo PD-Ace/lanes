@@ -195,7 +195,7 @@ decides what to do with decrypted data based type and type value
   - Uni-directional tunnels
        * Compliant implementations of the Lanes protocol cannot associate a tunnel ID with more than one direction of
          traffic. 
-         This applies only to the forwarding of traffic only.
+         This applies only to the forwarding of traffic.
          Among other possibilities, Public key cryptography key exchange will need bi-directional communication.
          
        * Encryption key used to transmit data may not be re-used to receive or decrypt data on another tunnel
@@ -258,3 +258,8 @@ decides what to do with decrypted data based type and type value
        sound nice, they are merely restrictions on how lanes would be implemented and operated therefore the term VPN can only
        apply if lanes is configured to form a VPN.
        
+     * Active queue management is a very important entry in the todo list , various queue management algorithms are being considered.
+       if implemented things like per-tunnel QoS will be possible. not sure how good of an idea this is since upper layer protocols
+       can already do this,regardless it will be an optional protocol feature. 
+     
+     
