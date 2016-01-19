@@ -1,6 +1,6 @@
 #             Lanes protocol - draft specification
 
- ### Protocol data unit  (Packet/Frame) structure 
+### Protocol data unit  (Packet/Frame) structure 
  
 ```   
 
