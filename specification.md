@@ -61,7 +61,7 @@
      
     - Tunnel ID
       * 32 bit numeric identifier. this will associate the packet in question with unique
-        and specific crystallographic processing and network or local destination.
+        and specific cryptographic processing and network or local destination.
         
       * If there is no matching tunnel ID configured on the receiver,the packet
         is to be discarded without any further processing. 
@@ -76,7 +76,7 @@
       * A tunnel ID can be used by many physical or logical transmission tunnel instances so long 
         as their data source is of the same nature.
         This enables the formation of a 1-to-1,1-to-many and many-to-many tunnel using the same tunnel ID 
-        for network and crystallographic association. 
+        for network and cryptographic association. 
         
       * Data sources can include but are not limited to IPv4/IPv6 tunnels,ethernet virtual interfaces,
         other physical interfaces, named pipes,unix sockets , RPC sockets or websockets. 
@@ -149,7 +149,7 @@
                 
                 Value: Non-zero 
                   * non zero value is set when injection of data for either testing,security or 
-                    crystallographic reasons is desired.
+                    cryptographic reasons is desired.
                     
                   * one use could be simulating fake response/replies using random data to mitigate
                     certain traffic size/pattern correlation attacks.
@@ -179,7 +179,7 @@
        
        * the nature of the data source(for example a tuntap interface in linux or another physical interface)
          is relevant only for the purposes of proper encapsulation and decapsulation of the data as well as
-         for establishing unique tunnel ID and crystallographic associations. 
+         for establishing unique tunnel ID and cryptographic associations. 
          
   - Tunnel ID based forwarding
        * Traffic can be accepted or rejected based on layer 3 (IPv4 or IPv6) properties,however
